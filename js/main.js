@@ -1,11 +1,10 @@
 //после загрузки DOM
 $(function () {
-    var form1 = new ProcessForm(
-    '.ajax-form',  
-    {
-      selector: '.ajax-form'
-    });
-    
-    form1.init();
-    
+
+  var forms = $('.ajax-form');
+  forms.each(function( index ) {
+    console.log(this);
+    var FORM = new ProcessForm(this);
+    FORM.init();
+  });
 });

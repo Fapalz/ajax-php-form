@@ -14,6 +14,7 @@ var ProcessForm = function (element, config) {
     this.form = $(element)[0];
     this.$form = $(this.form);
 
+
     this.getConfig = function () {
         return _config;
     }
@@ -122,21 +123,25 @@ ProcessForm.prototype = function () {
     };
     // при получении успешного ответа от сервера 
     var _success = function (data) {
+        console.log(data);
+        // сбрасываем состояние всех input и textarea элементов
+        $(this).find('input, textarea').not('[type="file"], [name="agree"]').each(function () {
+            _setStateValidaion(this, 'clear');
+        });
+
         // при успешной отправки формы
         if (data.result === "success") {
-            console.log(this);
             $(this).parent().find('.form-result-success')
                 .removeClass('d-none')
                 .addClass('d-flex');
+             $(this).find('.form-error').addClass('d-none');
             return;
         }
         // если произошли ошибки при отправке
         $(this).find('.form-error').removeClass('d-none');
         _changeStateSubmit(this, false);
-        // сбрасываем состояние всех input и textarea элементов
-        $(this).find('input, textarea').not('[type="file"], [name="agree"]').each(function () {
-            _setStateValidaion(this, 'clear');
-        });
+
+        
         // выводим ошибки которые прислал сервер
         for (var error in data['error']) {
             if (!data['error'].hasOwnProperty(error)) {
@@ -145,15 +150,15 @@ ProcessForm.prototype = function () {
             switch (error) {
                 case 'captcha':
                     _refreshCaptcha($(this));
-                    _setStateValidaion($(this).find('[name="' + error + '"]'), 'error', data[error]);
+                    _setStateValidaion($(this).find('[name="' + error + '"]'), 'error', data['error'][error]);
                     break;
                 case 'log':
-                    $.each(data[error], function (key, value) {
+                    $.each(data['error'][error], function (key, value) {
                         console.log(value);
                     });
                     break;
                 default:
-                    _setStateValidaion($(this).find('[name="' + error + '"]'), 'error', data[error]);
+                    _setStateValidaion($(this).find('[name="' + error + '"]'), 'error', data['error'][error]);
             }
             // устанавливаем фокус на 1 невалидный элемент
             if ($(this).find('.is-invalid').length > 0) {
@@ -163,6 +168,7 @@ ProcessForm.prototype = function () {
     };
     // если не получили успешный ответ от сервера 
     var _error = function (request) {
+        console.log(request);
         $(this).find('.form-error').removeClass('d-none');
     };
     // функция для инициализации 
@@ -170,6 +176,7 @@ ProcessForm.prototype = function () {
         
         this.setIsCaptcha(this.$form.find('.captcha').length > 0); // имеется ли у формы секция captcha
         this.setIsAgreement(this.$form.find('.agreement').length > 0); // имеется ли у формы секция agreement
+
 
         _setupListener(this);
     }
@@ -180,27 +187,32 @@ ProcessForm.prototype = function () {
             _changeAgreement(_this.form, !this.checked);
         })
 
-        _this.$form.find('.refresh-captcha').on('click', function() {
+        _this.$form.find('.refresh-captcha').on('click', function(e) {
             e.preventDefault();
             _refreshCaptcha(_this.form);
         })
+
+        _this.$form.on('submit', function (e) {
+            e.preventDefault();
+            _sendForm(_this.form);
+        });
         
         // $(document).on('change', _this.getConfig().selector + ' [name="agree"]', function () {
         //     _changeAgreement(_this.getForm(), !this.checked);
         // });
 
-        $(document).on('submit', _this.getConfig().selector, function (e) {
-            e.preventDefault();
-            _sendForm(_this.getForm());
-        });
-        $(document).on('click', _this.getConfig().selector + ' .refresh-captcha', function (e) {
-            e.preventDefault();
-            _refreshCaptcha(_this.getForm());
-        });
-        $(document).on('click', '[data-reloadform="' + _this.getConfig().selector + '"]', function (e) {
-            e.preventDefault();
-            _showForm(_this);
-        });
+        // $(document).on('submit', _this.getConfig().selector, function (e) {
+        //     e.preventDefault();
+        //     _sendForm(_this.getForm());
+        // });
+        // $(document).on('click', _this.getConfig().selector + ' .refresh-captcha', function (e) {
+        //     e.preventDefault();
+        //     _refreshCaptcha(_this.getForm());
+        // });
+        // $(document).on('click', '[data-reloadform="' + _this.getConfig().selector + '"]', function (e) {
+        //     e.preventDefault();
+        //     _showForm(_this);
+        // });
     }
     return {
         init: _init

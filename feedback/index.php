@@ -51,6 +51,18 @@ $form['form-1'] = array(
         'required' => 'Email обязателен для заполнения'
 			)
 		),
+    'upload_file' => array(
+			'title' => 'Имя',
+      'file' => true,
+			'validate' => array(
+				'extensions' => '.png, jpg, tif, pdf, doc, docs',
+        'maxsize' => '10000000'
+			),
+			'messages' => array(
+				'extensions' => 'Поле [ %1$s ] возможно содержит ошибку',
+				'maxsize' => 'Минимальная длинна поля [ %1$s ] меньше допустимой - %2$s',
+			)
+		),
 	),
 	'config' => array(
 		'charset' => 'utf-8',
@@ -86,12 +98,20 @@ require_once('phpmailer/src/PHPMailer.php');
 require_once('phpmailer/src/SMTP.php');
 
 
+
 // 3 ЭТАП - ОТКРЫТИЕ СЕССИИ И ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННОЙ ДЛЯ ХРАНЕНИЯ РЕЗУЛЬТАТОВ ОБРАБОТКИ ФОРМЫ
 session_start();
 $data = array();
 $error = array();
 $act = isset($_REQUEST['form-id']) ? $_REQUEST['form-id'] : die('error');
 $data['result'] = 'success';
+
+
+if ($_FILES['uploaded_file']) {
+  echo json_encode($_FILES);
+    
+    die();
+}
 
 if(isset($form[$act])) {
 
@@ -100,57 +120,78 @@ if(isset($form[$act])) {
    $sb = array(); // subject и body
 
     foreach($form['fields'] as $name => $field) {
+      $title = (isset($field['title'])) ? $field['title'] : $name;
+      $getdata[$name]['title'] = $title;
+      $def = 'Поле с именем [ '.$name.' ] содержит ошибку.';
 
-          $title = (isset($field['title'])) ? $field['title'] : $name;
-          $getdata[$name]['title'] = $title;
-          $rawdata = isset($_POST[$name]) ? trim($_POST[$name]) : '';
+      if($field['file'] === true && $field['validate']) {
 
-            if(isset($field['validate'])) {
+        $file = $_FILES[$name][['tmp_name']];
 
-                $def = 'Поле с именем [ '.$name.' ] содержит ошибку.';
-                // -0-
-                if(isset($field['validate']['required']) &&
-                    empty($rawdata)) {
-                    $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) :
-                                    (isset($messages['validator']['required']) ? sprintf($messages['validator']['required'], $title) : $def);
-                    $data['result'] = 'error';
-                }
-                // -1-
-                if(isset($field['validate']['minlength']) &&
-                    mb_strlen($rawdata) < $field['validate']['minlength']) {
-                    $error[$name] = isset($field['messages']['minlength']) ? sprintf($field['messages']['minlength'], $title, $field['validate']['minlength']) : $def;
-                    $data['result'] = 'error';
-                }
-                // -2-
-                if(isset($field['validate']['maxlength']) &&
-                  mb_strlen($rawdata) > $field['validate']['maxlength']) {
-                      $error[$name] = isset($field['messages']['maxlength']) ? sprintf($field['messages']['maxlength'], $title, $field['validate']['maxlength']) : $def;
-                      $data['result'] = 'error';
-                }
-                // -3-
-                if(isset($field['validate']['preg']) && mb_strlen($rawdata) > 0 &&
-                    !preg_match($field['validate']['preg'], $rawdata)) {
-                    $error[$name] = isset($field['messages']['preg']) ? sprintf($field['messages']['preg'], $title, $field['validate']['preg']) : $def;
-                    $data['result'] = 'error';
-                }
-                // -4-
-                if(isset($field['validate']['substr']) &&
-                    mb_strlen($rawdata) > $field['validate']['substr']) {
-                    $rawdata = mb_substr($rawdata, 0, $field['validate']['substr']);
-                }
+        if(isset($field['validate']['required'] && empty($file)) {
+          $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) : $def);
+        }
 
-              $outdata = htmlspecialchars($rawdata);
+        if(isset($field['validate']['maxsize']) {
+          
+        }
 
-              $getdata[$name]['value'] = $outdata;
+        if(isset($field['validate']['extensions']) {
+          
+        }
 
+        continue;
+      }
+
+      $rawdata = isset($_POST[$name]) ? trim($_POST[$name]) : '';
+
+        if(isset($field['validate'])) {
+            
+            
+            // -0-
+            if(isset($field['validate']['required']) &&
+                empty($rawdata)) {
+                $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) :
+                                (isset($messages['validator']['required']) ? sprintf($messages['validator']['required'], $title) : $def);
+                $data['result'] = 'error';
             }
-              else {
-                $getdata[$name]['value'] = htmlspecialchars($rawdata);
+            // -1-
+            if(isset($field['validate']['minlength']) &&
+                mb_strlen($rawdata) < $field['validate']['minlength']) {
+                $error[$name] = isset($field['messages']['minlength']) ? sprintf($field['messages']['minlength'], $title, $field['validate']['minlength']) : $def;
+                $data['result'] = 'error';
+            }
+            // -2-
+            if(isset($field['validate']['maxlength']) &&
+              mb_strlen($rawdata) > $field['validate']['maxlength']) {
+                  $error[$name] = isset($field['messages']['maxlength']) ? sprintf($field['messages']['maxlength'], $title, $field['validate']['maxlength']) : $def;
+                  $data['result'] = 'error';
+            }
+            // -3-
+            if(isset($field['validate']['preg']) && mb_strlen($rawdata) > 0 &&
+                !preg_match($field['validate']['preg'], $rawdata)) {
+                $error[$name] = isset($field['messages']['preg']) ? sprintf($field['messages']['preg'], $title, $field['validate']['preg']) : $def;
+                $data['result'] = 'error';
+            }
+            // -4-
+            if(isset($field['validate']['substr']) &&
+                mb_strlen($rawdata) > $field['validate']['substr']) {
+                $rawdata = mb_substr($rawdata, 0, $field['validate']['substr']);
             }
 
-              if(empty($getdata[$name]['value'])) {
-                    unset($getdata[$name]);
-                }
+          $outdata = htmlspecialchars($rawdata);
+
+          $getdata[$name]['value'] = $outdata;
+
+        }
+
+        else {
+          $getdata[$name]['value'] = htmlspecialchars($rawdata);
+        }
+
+        if(empty($getdata[$name]['value'])) {
+              unset($getdata[$name]);
+        }
     }
 
     if ($form['config']['captcha'] == true) {
