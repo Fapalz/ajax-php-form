@@ -6,12 +6,16 @@
       <td colspan="2"><strong>Заголовок в теле письма</strong></td>
     </tr>
     <tr>
-      <td>%%name.title%%</td>
-      <td>%%name.value%%</td>
+      <td>%name.title%</td>
+      <td>%name.value%</td>
     </tr>
     <tr>
-      <td>%%tell.title%%</td>
-      <td>%%tell.value%%</td>
+      <td>%email.title%</td>
+      <td>%email.value%</td>
+    </tr>
+    <tr>
+      <td>%message.title%</td>
+      <td>%message.value%</td>
     </tr>
   </tbody>
 </table>

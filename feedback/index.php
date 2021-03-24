@@ -51,16 +51,16 @@ $form['form-1'] = array(
         'required' => 'Email обязателен для заполнения'
 			)
 		),
-    'upload_file' => array(
-			'title' => 'Имя',
+    'uploaded_file' => array(
+			'title' => 'Файлы',
       'file' => true,
 			'validate' => array(
-				'extensions' => '.png, jpg, tif, pdf, doc, docs',
+				'extensions' => 'png,jpg,tif,pdf,doc,docs',
         'maxsize' => '10000000'
 			),
 			'messages' => array(
-				'extensions' => 'Поле [ %1$s ] возможно содержит ошибку',
-				'maxsize' => 'Минимальная длинна поля [ %1$s ] меньше допустимой - %2$s',
+				'extensions' => 'Допускаются файлы с расширением [ %1$s ]',
+				'maxsize' => 'Максимальный размер файлов [ %1$s ]',
 			)
 		),
 	),
@@ -70,10 +70,10 @@ $form['form-1'] = array(
 		'title' => 'Заголовок в теле письма',
 		'ajax' => true,
 		'validate' => true,
-		'from_email' => 'noreply@email.com',
-		'from_name' => 'noreply',
-		'to_email' => 'noreply1@email.com, noreply2@email.com',
-		'to_name' => 'noreply1, noreply2',
+		'from_email' => 'blacesmot@gmail.com',
+		'from_name' => 'Кирилл',
+		'to_email' => 'blacesmot@gmail.com',
+		'to_name' => 'Кирилл',
 		'referer' => true,
 		'tpl' => true,
     'captcha' => true,
@@ -107,42 +107,87 @@ $act = isset($_REQUEST['form-id']) ? $_REQUEST['form-id'] : die('error');
 $data['result'] = 'success';
 
 
-if ($_FILES['uploaded_file']) {
-  echo json_encode($_FILES);
+// if ($_FILES['uploaded_file']) {
+//   echo json_encode($_FILES);
     
-    die();
-}
+//     die();
+// }
 
 if(isset($form[$act])) {
 
    $form = $form[$act];
    $getdata = array();
-   $sb = array(); // subject и body
+   $getFiles = array();
 
     foreach($form['fields'] as $name => $field) {
       $title = (isset($field['title'])) ? $field['title'] : $name;
-      $getdata[$name]['title'] = $title;
+      
       $def = 'Поле с именем [ '.$name.' ] содержит ошибку.';
 
-      if($field['file'] === true && $field['validate']) {
+      
+      if($field['file'] === true) {
+        
+        if(empty($_FILES[$name])) { continue; }
 
-        $file = $_FILES[$name][['tmp_name']];
+        $files = array();
 
-        if(isset($field['validate']['required'] && empty($file)) {
-          $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) : $def);
+        if(is_array($_FILES[$name]['name'])) {
+          foreach($_FILES[$name]['name'] as $key => $value) {
+            if ( $_FILES[$name]['error'][$key] > 0) { continue; }
+
+            $files[$key]['name'] = $_FILES[$name]['name'][$key];
+            $files[$key]['size'] = $_FILES[$name]['size'][$key];
+            $files[$key]['tmp_name'] = $_FILES[$name]['tmp_name'][$key];
+            $files[$key]['type'] = $_FILES[$name]['type'][$key];
+            $files[$key]['error'] = $_FILES[$name]['error'][$key];
+          }
+        } else {
+          if($_FILES[$name]['error'] == 0) {
+            $files[] = $_FILES[$name];
+          }
         }
 
-        if(isset($field['validate']['maxsize']) {
-          
+        if($field['validate']) {
+
+          if(isset($field['validate']['required']) && empty($files)) {
+            $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) : $def;
+            
+            continue;
+          }
+
+          if(!empty($files) && isset($field['validate']['maxsize'])) {
+            $sizes = 0;
+
+            foreach($files as $key => $val) {
+              $sizes += floatval($val['size']);
+            }
+            
+            if ($sizes > $field['validate']['maxsize']) {
+              $error[$name][] = isset($field['messages']['maxsize']) ? sprintf($field['messages']['maxsize'], $title, $field['validate']['maxsize']) : $def;
+            }
+          }
+
+          foreach($files as $key => $val) {
+            $fileName = $val['name'];
+
+            if(!empty($files) && isset($field['validate']['extensions'])) {
+              $extensionsArr = explode(',', $field['validate']['extensions']);
+              // echo json_encode($extensionsArr);
+              // die();
+              $ext = strtolower(substr($fileName, strpos($fileName,'.') + 1, strlen($fileName)-1));
+              
+              if(!in_array($ext, $extensionsArr)) {
+                $error[$name][] = isset($field['messages']['extensions']) ? sprintf($field['messages']['extensions'], $field['validate']['extensions']) : $def;
+              }
+            }
+          }
         }
 
-        if(isset($field['validate']['extensions']) {
-          
-        }
-
+        $getFiles = array_merge($getFiles, $files);
         continue;
       }
 
+      $getdata[$name]['title'] = $title;
       $rawdata = isset($_POST[$name]) ? trim($_POST[$name]) : '';
 
         if(isset($field['validate'])) {
@@ -246,6 +291,26 @@ if(isset($form[$act])) {
 
       // устанавливаем параметры
       $mail = new PHPMailer;
+      $mail->setLanguage("ru");
+
+      //$mail->SMTPDebug = 3; 
+      $mail->isSMTP();
+      //Set SMTP host name                          
+      $mail->Host = "smtp.gmail.com";
+      //Set this to true if SMTP host requires authentication to send email
+      $mail->SMTPAuth = true;                          
+      //Provide username and password     
+      $mail->Username = "blacesmot@gmail.com";                 
+      $mail->Password = "nifcfkllertghwbq";                           
+      //If SMTP requires TLS encryption then set it
+      $mail->SMTPSecure = "tls";                           
+      //Set TCP port to connect to
+      $mail->Port = 587; 
+
+      // $mail->From = $form['config']['from_email'];
+      // $mail->FromName = $form['config']['from_name'];
+      // $mail->Subject = $form['config']['subject'];
+
       $mail->CharSet = 'UTF-8';
       $mail->IsHTML(true);
       $fromName = '=?UTF-8?B?'.base64_encode($form['config']['from_name']).'?=';
@@ -259,10 +324,23 @@ if(isset($form[$act])) {
         $mail->addAddress(trim($email));
       }
 
-      // отправляем письмо
-      if (!$mail->send()) {
-        $data['result'] = 'error';
+      foreach($getFiles as $file) {
+        $mail->AddAttachment($file['tmp_name'], $file['name']);
       }
+
+
+      try {
+          $mail->send();
+      } catch (Exception $e) {
+        $data['result'] = 'error';
+        $data['form_error'] = $mail->ErrorInfo;
+         
+      }
+
+      // отправляем письмо
+      // if (!$mail->send()) {
+      //   $data['result'] = 'error';
+      // }
     }
 
 
@@ -332,8 +410,3 @@ echo json_encode($data);
       return false;
     }
  }
-
-
-
-
-
