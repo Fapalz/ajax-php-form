@@ -55,8 +55,9 @@ $form['form-1'] = array(
 			'title' => 'Файлы',
       'file' => true,
 			'validate' => array(
-				'extensions' => 'png,jpg,tif,pdf,doc,docs',
-        'maxsize' => '10000000'
+				'extensions' => 'jpg,tif,pdf,doc,docs',
+        'maxsize' => '100000000',
+        'required' => true,
 			),
 			'messages' => array(
 				'extensions' => 'Допускаются файлы с расширением [ %1$s ]',
@@ -68,7 +69,6 @@ $form['form-1'] = array(
 		'charset' => 'utf-8',
 		'subject' => 'Тема письма',
 		'title' => 'Заголовок в теле письма',
-		'ajax' => true,
 		'validate' => true,
 		'from_email' => 'blacesmot@gmail.com',
 		'from_name' => 'Кирилл',
@@ -78,17 +78,18 @@ $form['form-1'] = array(
 		'tpl' => true,
     'captcha' => true,
     'log' => true,
-		'geoip' => true,
-		'type' => 'html',
+    'smtp' => true,
+    'smtp_host' => 'smtp.gmail.com',
+    'smtp_login' => 'blacesmot@gmail.com',
+    'smtp_port' => 587,
+    'smtp_password' => 'xkxbehivquokgffm',
+    'smtp_secure' => 'tls',
 		'antispam' => 'email77',
 		'antispamjs' => 'address77',
-		'okay' => 'Сообщение отправлено - OK',
-		'fuck' => 'Сообщение отправлено - ERROR',
 		'spam' => 'Cпам робот',
-		'notify' => 'color-modal-textbox',
-		'usepresuf' => false
 	)
 );
+
 
 // 2 ЭТАП - ПОДКЛЮЧЕНИЕ PHPMAILER
 use PHPMailer\PHPMailer\PHPMailer;
@@ -122,36 +123,40 @@ if(isset($form[$act])) {
     foreach($form['fields'] as $name => $field) {
       $title = (isset($field['title'])) ? $field['title'] : $name;
       
-      $def = 'Поле с именем [ '.$name.' ] содержит ошибку.';
+      $def = 'Поле с именем [ '.$title.' ] содержит ошибку.';
 
       
       if($field['file'] === true) {
         
-        if(empty($_FILES[$name])) { continue; }
-
         $files = array();
 
-        if(is_array($_FILES[$name]['name'])) {
-          foreach($_FILES[$name]['name'] as $key => $value) {
-            if ( $_FILES[$name]['error'][$key] > 0) { continue; }
+        if(!empty($_FILES[$name])) {
 
-            $files[$key]['name'] = $_FILES[$name]['name'][$key];
-            $files[$key]['size'] = $_FILES[$name]['size'][$key];
-            $files[$key]['tmp_name'] = $_FILES[$name]['tmp_name'][$key];
-            $files[$key]['type'] = $_FILES[$name]['type'][$key];
-            $files[$key]['error'] = $_FILES[$name]['error'][$key];
-          }
-        } else {
-          if($_FILES[$name]['error'] == 0) {
-            $files[] = $_FILES[$name];
+          if(is_array($_FILES[$name]['name'])) {
+            foreach($_FILES[$name]['name'] as $key => $value) {
+              if ( $_FILES[$name]['error'][$key] > 0) { continue; }
+
+              $files[$key]['name'] = $_FILES[$name]['name'][$key];
+              $files[$key]['size'] = $_FILES[$name]['size'][$key];
+              $files[$key]['tmp_name'] = $_FILES[$name]['tmp_name'][$key];
+              $files[$key]['type'] = $_FILES[$name]['type'][$key];
+              $files[$key]['error'] = $_FILES[$name]['error'][$key];
+            }
+          } else {
+            if($_FILES[$name]['error'] == 0) {
+              $files[] = $_FILES[$name];
+            }
           }
         }
 
-        if($field['validate']) {
+        if(isset($field['validate']) && $form['config']['validate']) {
+
+          // echo json_encode($files);
+          // die();
 
           if(isset($field['validate']['required']) && empty($files)) {
-            $error[$name] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) : $def;
-            
+            $error[$name][] = isset($field['messages']['required']) ? sprintf($field['messages']['required'], $title) : $def;
+            $data['result'] = 'error';
             continue;
           }
 
@@ -163,7 +168,8 @@ if(isset($form[$act])) {
             }
             
             if ($sizes > $field['validate']['maxsize']) {
-              $error[$name][] = isset($field['messages']['maxsize']) ? sprintf($field['messages']['maxsize'], $title, $field['validate']['maxsize']) : $def;
+              $error[$name][] = isset($field['messages']['maxsize']) ? sprintf($field['messages']['maxsize'], $field['validate']['maxsize']) : $def;
+              $data['result'] = 'error';
             }
           }
 
@@ -178,6 +184,7 @@ if(isset($form[$act])) {
               
               if(!in_array($ext, $extensionsArr)) {
                 $error[$name][] = isset($field['messages']['extensions']) ? sprintf($field['messages']['extensions'], $field['validate']['extensions']) : $def;
+                $data['result'] = 'error';
               }
             }
           }
@@ -190,7 +197,7 @@ if(isset($form[$act])) {
       $getdata[$name]['title'] = $title;
       $rawdata = isset($_POST[$name]) ? trim($_POST[$name]) : '';
 
-        if(isset($field['validate'])) {
+        if(isset($field['validate']) && $form['config']['validate']) {
             
             
             // -0-
@@ -293,19 +300,21 @@ if(isset($form[$act])) {
       $mail = new PHPMailer;
       $mail->setLanguage("ru");
 
-      //$mail->SMTPDebug = 3; 
-      $mail->isSMTP();
-      //Set SMTP host name                          
-      $mail->Host = "smtp.gmail.com";
-      //Set this to true if SMTP host requires authentication to send email
-      $mail->SMTPAuth = true;                          
-      //Provide username and password     
-      $mail->Username = "blacesmot@gmail.com";                 
-      $mail->Password = "nifcfkllertghwbq";                           
-      //If SMTP requires TLS encryption then set it
-      $mail->SMTPSecure = "tls";                           
-      //Set TCP port to connect to
-      $mail->Port = 587; 
+      if($form['config']['smtp']) {
+        //$mail->SMTPDebug = 3; 
+        $mail->isSMTP();
+        //Set SMTP host name
+        $mail->Host = $form['config']['smtp_host'];
+        //Set this to true if SMTP host requires authentication to send email
+        $mail->SMTPAuth = true;
+        //Provide username and password     
+        $mail->Username = $form['config']['smtp_login'];
+        $mail->Password = $form['config']['smtp_password'];
+        //If SMTP requires TLS encryption then set it
+        $mail->SMTPSecure = $form['config']['smtp_secure'];
+        //Set TCP port to connect to
+        $mail->Port = $form['config']['smtp_port']; 
+      }
 
       // $mail->From = $form['config']['from_email'];
       // $mail->FromName = $form['config']['from_name'];

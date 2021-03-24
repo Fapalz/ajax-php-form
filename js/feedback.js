@@ -51,9 +51,18 @@ ProcessForm.prototype = function () {
     var _setStateValidaion = function (input, state, message) {
         input = $(input);
         if (state === 'error') {
-            input
-                .removeClass('is-valid').addClass('is-invalid')
-                .siblings('.invalid-feedback').text(message);
+            input.removeClass('is-valid').addClass('is-invalid');
+            var mess = '';
+            if(Array.isArray(message)) {
+                mess += '<ul>'
+                message.forEach( function(elemnt) {
+                    mess += '<li>'+ elemnt + '</li>'
+                })
+                mess += '</ul>'
+            } else {
+                mess = message;
+            }
+            input.siblings('.invalid-feedback').html(mess);
         } else if (state === 'success') {
             input.removeClass('is-invalid').addClass('is-valid');
         } else {
@@ -125,9 +134,10 @@ ProcessForm.prototype = function () {
     var _success = function (data) {
         console.log(data);
         // сбрасываем состояние всех input и textarea элементов
-        $(this).find('input, textarea').not('[type="file"], [name="agree"]').each(function () {
+        $(this).find('input, textarea').not('[name="agree"]').each(function () {
             _setStateValidaion(this, 'clear');
         });
+        _changeStateSubmit(this, false);
 
         // при успешной отправки формы
         if (data.result === "success") {
@@ -139,7 +149,7 @@ ProcessForm.prototype = function () {
         }
         // если произошли ошибки при отправке
         $(this).find('.form-error').removeClass('d-none');
-        _changeStateSubmit(this, false);
+        
 
         
         // выводим ошибки которые прислал сервер
@@ -168,7 +178,6 @@ ProcessForm.prototype = function () {
     };
     // если не получили успешный ответ от сервера 
     var _error = function (request) {
-        console.log(request);
         $(this).find('.form-error').removeClass('d-none');
     };
     // функция для инициализации 
